@@ -3,10 +3,9 @@ Algorithm is based on Computerphile's video: https://youtu.be/G_UYXzGuqvM?si=vRv
 
 """
 
-from export import import_json, TEST_1, TEST_2
+from export import import_json, TEST_1, TEST_2, HAND_WRITTEN
 
 grid: list[list[int]] = None
-solution_count = 0
 
 def is_possible(x: int, y: int, t: int) -> bool:
     """
@@ -32,28 +31,50 @@ def is_possible(x: int, y: int, t: int) -> bool:
     return True
 
 
-def solve(_grid: list[list[int]] = None) -> int:
-    global grid, solution_count
-    if _grid != None:
-        grid = _grid
-        solution_count = 0
+def brute_force(sol_count: int = 0) -> int:
+    """
+    Do no directly use this function. Use solve() instead.
+    """
+    global grid
     for y in range(9):
         for x in range(9):
             if grid[y][x] == 0:
                 for t in range(1, 10):
                     if is_possible(x, y, t):
                         grid[y][x] = t
-                        solve()
+                        sol_count = brute_force(sol_count=sol_count)
                         grid[y][x] = 0
-                return
-    solution_count += 1
+                return sol_count
+    print(f'Solution #{sol_count + 1}')
+    for row in grid:
+        print(row)
+    print()
+    return sol_count + 1
+
+
+def solve(_grid: list[list[int]] = None) -> int:
+    """
+    Wrapper to use brute_force() function.
+    Returns the number of solutions.
+    """
+    global grid
+    grid = _grid
+    return brute_force()
+
 
 
 def main():
-    grid = import_json(TEST_1)
-    solve(grid)
-    global solution_count
-    print(solution_count)
+    grid = import_json(TEST_2)
+    solution_count = solve(grid)
+    print(f'Total solutions: {solution_count}')
+    
+    for row in grid:
+        print(row)
+    print()
+
+    
+
+
 
 if __name__ == '__main__':
     main()
