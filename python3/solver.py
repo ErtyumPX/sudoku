@@ -16,13 +16,16 @@ from copy import deepcopy
 
 _grid: list[list[int]] = None
 _all_solutions: list[list[list[int]]] = None
+_iteration_count = None
 
 
 def collect_garbage(function_to_decorate):
     def wrapper(*args, **kw):
         output = function_to_decorate(*args, **kw)
+        global _grid, _all_solutions, _iteration_count
         _grid = None
         _all_solutions = None
+        _iteration_count = None
         return output
     return wrapper
 
@@ -51,11 +54,14 @@ def is_possible(x: int, y: int, t: int) -> bool:
     return True
 
 
-def brute_force() -> list[list[int]]:
+def brute_force(count_steps: bool = False) -> None:
     """
     Do no directly use this function. Use solve() instead.
     """
     global _grid, _all_solutions
+    if count_steps:
+        global _iteration_count
+        _iteration_count += 1
     for y in range(9):
         for x in range(9):
             if _grid[y][x] == 0:
@@ -81,6 +87,24 @@ def solve(grid: list[list[int]]) -> list[list[list[int]]]:
     return deepcopy(_all_solutions)
 
 
+@collect_garbage
+def solve_and_count(grid: list[list[int]]) -> int:
+    """
+    Returns the number of iterations required to solve the puzzle.
+    Returns -1 if the puzzle has multiple solutions.
+    Do not return other solutions since the main purpose is to use it
+    for puzzle generation.
+    """
+    global _grid, _all_solutions, _iteration_count
+    _grid = grid
+    _all_solutions = []
+    _iteration_count = 0
+    brute_force(True)
+    if len(_all_solutions) != 1:
+        return -1
+    return _iteration_count
+
+
 def main():
     grid = import_json(TEST_2)
     solutions: list[list[int]] = solve(grid)
@@ -89,6 +113,9 @@ def main():
         for row in solution:
             print(row)
         print()
+
+    iterations = solve_and_count(grid)
+    print(f'Iterations: {iterations}')
 
 
 if __name__ == '__main__':
