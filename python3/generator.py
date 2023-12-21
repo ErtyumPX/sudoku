@@ -7,6 +7,7 @@ and check if it is still solvable.
 
 For deciding difficulty, we can use the iteration count of the algorithm.
 """
+
 """ --DEPRECATED--
 def fill_random_grid() -> list[list[int]]:
     global _grid
@@ -51,37 +52,54 @@ def brute_force_fill() -> None:
             if _grid[y][x].t == 0 and _grid[y][x].possibles:
                 add_number(x, y, t)
  """
+""" --DEPRECATED--
+def is_possible(x: int, y: int, t: int) -> bool:
+    #x: x coordinate
+    #y: y coordinate
+    #t: number to be tested
+    assert x >= 0 and x < 9 and int(x) == x, f'x is out of range: {x}'
+    assert y >= 0 and y < 9 and int(y) == y, f'y is out of range: {y}'
+    assert t > 0 and t <= 9 and int(t) == t, f't is out of range: {t}'
+    global _grid
+    for i in range(9):
+        if _grid[y][i] == t:
+            return False
+        if _grid[i][x] == t:
+            return False
+    x0 = (x // 3) * 3
+    y0 = (y // 3) * 3
+    for i in range(3):
+        for j in range(3):
+            if _grid[y0 + i][x0 + j] == t:
+                return False
+    return True    
+"""
 
 
 from random import randint, shuffle, choice
 from solver import solve, solve_and_count
 from export import save_json, import_json, TEST_DIR
+from visualiser import draw_grid
 from copy import deepcopy
 
 
 _grid: list[list[int]] = None
-_columns: list[list[int]] = None
-_boxes: list[list[list[int]]] = None
+_possibilities: list[list[list[int]]] = None
+_empty_cells: list[tuple[int, int]] = None
 
 
 def collect_garbage(function_to_decorate):
     def wrapper(*args, **kw):
         output = function_to_decorate(*args, **kw)
-        global _grid, _columns, _boxes
+        global _grid, _possibilities, _empty_cells
         _grid = None
-        _columns = None
-        _boxes = None
+        _possibilities = None
+        _empty_cells = None
         return output
-    return wrapper
+    return wrapper 
 
 
-def is_possible(x: int, y: int, t: int) -> bool:
-    # y - 1 is because first row is auto-placed
-    column_check =_columns[y].count(t) != 0
-    box_check = _boxes[y // 3][x // 3].count(t) != 0
-    return column_check and box_check
-
-def add_number(x: int, y: int, t: int) -> None:
+def put_number(x: int, y: int, t: int) -> None:
     """
     x: x coordinate
     y: y coordinate
@@ -89,54 +107,102 @@ def add_number(x: int, y: int, t: int) -> None:
     """
     assert x >= 0 and x < 9 and int(x) == x, f'x is out of range: {x}'
     assert y >= 0 and y < 9 and int(y) == y, f'y is out of range: {y}'
-    assert t >= 1 and t <= 9 and int(t) == t, f't is out of range: {t}'
-    global _grid, _columns, _boxes
+    assert t >= 0 and t <= 9 and int(t) == t, f't is out of range: {t}'
+    global _grid, _possibilities, _empty_cells
     _grid[y][x] = t
-    _columns[y].remove(t)
-    _boxes[y // 3][x // 3].remove(t)
-
-
-def iterative_fill() -> None:
-    global _grid
-    first = [i for i in range(1, 10)]
-    shuffle(first)
+    _possibilities[y][x] = []
+    _empty_cells.remove((x, y))
+    # for the row, column and square, remove t from possibilities if it exists
     for i in range(9):
-        add_number(i, 0, first.pop())
-    for j in range(1, 9):
-        for i in range(0, 9):
-            remaining = [i for i in range(1, 10)]
-            shuffle(remaining)
-            while len(remaining) > 0:
-                t = remaining.pop()
-                if is_possible(i, j, t):
-                    add_number(i, j, t)
-                    break
-                elif len(remaining) == 0:
-                    print(f'No possible number found for {i}x{j}!')
-                    return
+        if t in _possibilities[y][i]:
+            _possibilities[y][i].remove(t)
+        if t in _possibilities[i][x]:
+            _possibilities[i][x].remove(t)
+    x0 = (x // 3) * 3
+    y0 = (y // 3) * 3
+    for i in range(3):
+        for j in range(3):
+            if t in _possibilities[y0 + i][x0 + j]:
+                _possibilities[y0 + i][x0 + j].remove(t)
 
+
+def fill_diagonal() -> list[list[int]]:
+    global _grid
+    _grid = [[0 for _ in range(9)] for _ in range(9)]
+    for t in range(3):
+        remaining = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        shuffle(remaining)
+        for y in range(3):
+            for x in range(3):
+                random_choice = choice(remaining)
+                put_number(x + t * 3, y + t * 3, random_choice)
+                remaining.remove(random_choice)
+    return _grid
+
+
+def get_single_cells() -> list[tuple[int, int, int]]:
+    global _possibilities
+    output = []
+    for y in range(9):
+        for x in range(9):
+            if len(_possibilities[y][x]) == 1:
+                output.append((x, y, _possibilities[y][x][0]))
+    return output
+
+
+def is_completed() -> bool:
+    global _grid
+    for row in _grid:
+        for cell in row:
+            if cell == 0:
+                return False
+    return True
+
+
+def fill_remaining() -> None:
+    global _grid, _possibilities, _empty_cells
+    while not is_completed():
+        single_cells = get_single_cells()
+        if len(single_cells) == 0:
+            selected_cell = choice(_empty_cells)
+            t = choice(_possibilities[selected_cell[1]][selected_cell[0]])
+            put_number(selected_cell[0], selected_cell[1], t)
+        else:
+            for cell in single_cells:
+                put_number(cell[0], cell[1], cell[2])
+    
 
 @collect_garbage
 def generate() -> list[list[int]]:
-    global _grid, _columns, _boxes
+    global _grid, _possibilities, _empty_cells
     _grid = [[0 for _ in range(9)] for _ in range(9)]
-    _columns = [[i for i in range(1, 10)] for _ in range(9)]
-    _boxes = [[[i for i in range(1, 10)] for _ in range(3)] for _ in range(3)]
-    iterative_fill()
-    for row in _grid:
-        print(row)
-    print()
-
-
+    _possibilities = [[[1, 2, 3, 4, 5, 6, 7, 8, 9] for _ in range(9)] for _ in range(9)]
+    _empty_cells = [(x, y) for x in range(9) for y in range(9)]
+    fill_diagonal()
+    fill_remaining()
+    return deepcopy(_grid)
 
 
 def main():
-    random_grid: list[list[int]] = generate()
-    for row in random_grid:
+    grid = generate()
+    for row in grid:
         print(row)
     print()
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        if _grid is not None:
+            draw_grid(_grid)
+    except Exception as e:
+        print(e)
+        if _grid is not None:
+            draw_grid(_grid)
     
+
+
+
+
+

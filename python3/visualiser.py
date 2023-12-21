@@ -3,10 +3,8 @@ import pygame
 import os
 
 
-
 ABS_DIR: str = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_FONT_PATH: str = ABS_DIR + '/data/SpaceMono-Regular.ttf'
-
 
 
 def grid_to_surface(root: pygame.Surface, grid: list[list[int]]) -> None:
@@ -61,8 +59,12 @@ def parse_args() -> list[list[int]]:
 
 
 def main():
+    from solver import solve
     grid = import_json("test_data/hand_written.json")
     draw_grid(grid)
+    solutions = solve(grid)
+    if len(solutions) != 0:
+        draw_grid(solutions[0])
 
 
 if __name__ == '__main__':
